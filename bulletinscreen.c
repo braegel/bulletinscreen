@@ -20,9 +20,10 @@ static char args_doc[] = "";
 
 /* The options we understand. */
 static struct argp_option options[] = {
-				       {"callsign", 'c', "CALLSIGN",      0,  "Your callsign" },
-				       {"passcode", 'p', "PASSCODE",      0,  "APRS-IS passcode" },
-				       {"range",    'r', 0,      0,  "Filter in km around your callsign" },
+				       {"callsign", 'c', "CALLSIGN",      0,  "Your callsign (default: -1)" },
+				       {"passcode", 'p', "PASSCODE",      0,  "APRS-IS passcode (default: -1)" },
+				       {"server", 's', "PASSCODE",      0,  "APRS-IS server (default: rotate.aprs2.net)" },
+				       {"range",    'r', 0,      0,  "Filter around your callsign in km" },
 				       {"verbose",  'v', 0,      0,  "Produce verbose output" },
 				       {"quiet",    'q', 0,      0,  "Don't produce any output" },
 				       { 0 }
@@ -35,6 +36,7 @@ struct arguments
   int silent, verbose, range;
   char *callsign;
   char *passcode;
+  char *server;
 };
 
 /* Parse a single option. */
@@ -58,6 +60,9 @@ parse_opt (int key, char *arg, struct argp_state *state)
       break;
     case 'p':
       arguments->passcode = arg;
+    case 's':
+      arguments->server = arg;
+
       break;
 
     }
@@ -66,22 +71,6 @@ parse_opt (int key, char *arg, struct argp_state *state)
 
 /* Our argp parser. */
 static struct argp argp = { options, parse_opt, args_doc, doc };
-
-int check_valid_callsign(const char* callsign){
-  if (strlen(callsign)<=3) {
-    printf("ERROR: callsign '%s' is to short\n",callsign);
-    return(26617);
-  }
-  return (0);
-}
-
-int check_valid_aprs_passcode(const char* passcode){
-  if (strlen(passcode)<=2) {
-    printf("ERROR: passcode '%s' is to short\n",passcode);
-    return(26617);
-  }
-  return (0);
-}
 
 int
 main (int argc, char **argv)
@@ -92,8 +81,9 @@ main (int argc, char **argv)
   arguments.silent = 0;
   arguments.verbose = 0;
   arguments.range=-1;
-  arguments.passcode="";
-  arguments.callsign="";
+  arguments.passcode="-1";
+  arguments.callsign="-1";
+  arguments.server="rotate.aprs2.net";
 
 
   /* Parse our arguments; every option seen by parse_opt will
@@ -101,18 +91,6 @@ main (int argc, char **argv)
 
   argp_parse (&argp, argc, argv, 0, 0, &arguments);
 
-  if (check_valid_callsign(arguments.callsign))
-    {
-      printf("ERROR: Callsign '%s' not valid.",arguments.callsign);
-      exit(5664);
-    }
-  if (check_valid_aprs_passcode(arguments.passcode))
-    {
-      printf("ERROR: passcode '%s' not valid.",arguments.passcode);
-      exit(5664);
-    }
-
-  
   return 0;
 }
 
