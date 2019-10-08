@@ -1,10 +1,10 @@
-#include <stdbool.h>
 #include <argp.h>
 #include <netdb.h> 
 #include <netinet/in.h>
+#include <regex.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -38,6 +38,7 @@ static struct argp_option options[] = {
 				       {"port", 'P', "port",      0,  "APRS-IS server port (default: 14580)" },
 
 				       {"range",    'r', 0,      0,  "Filter around your callsign in km" },
+				       {"debug",  'd', 0,      0,  "Produce debugging output" },
 				       {"verbose",  'v', 0,      0,  "Produce verbose output" },
 				       {"quiet",    'q', 0,      0,  "Don't produce any output" },
 				       { 0 }
@@ -47,7 +48,7 @@ static struct argp_option options[] = {
 struct arguments
 {
   char *args[2];                /* arg1 & arg2 */
-  int silent, verbose, range;
+  int silent, verbose, range, debug;
   char *callsign;
   char *passcode;
   char *server;
@@ -82,6 +83,11 @@ parse_opt (int key, char *arg, struct argp_state *state)
       sscanf(arg, "%d", &port);
       arguments->port = port;
       break;
+    case 'd':
+      arguments->verbose = 1;
+      arguments->debug = 1;
+      break;
+
     }
   return 0;
 }
@@ -111,12 +117,6 @@ void trimTrailing(char * str)
   str[index + 1] = '\0';
 }
 
-// valid?
-bool valid_callsign(unsigned char *str){
-  // TODO NEXT
-  return(true);
-}
-
 // For socket
 void error(char *msg)
 {
@@ -124,46 +124,58 @@ void error(char *msg)
   exit(0);
 }
 
+bool parseable_message(unsigned char *buffer){
+  regex_t regex;
+  int reti;
+  char msgbuf[100];
+  reti = regcomp(&regex, "", 0);
+  if (reti) {
+    fprintf(stderr, "Could not compile regex\n");
+    exit(1);
+  }
+ 
+  return(true);
+}
+
 void process(char *buffer){
   if (buffer[0] == '#') { return; }
+  
   int i;
   unsigned char sender[30]; // TODO 7+1 byte should suffice, however i see longer sender callsigns.
   unsigned char addressee[30];
   unsigned char msg[100]; // TODO
-  if (arguments.verbose) printf("%s",buffer);
-
-  //parse sender
-  for(i=0;i<strlen(buffer);i++){
-    if (buffer[i]=='>'){
-      strncpy(sender,buffer,i);
-      sender[i]='\0';
-      break;
-    }
-  }
-
-  if (!valid_callsign(sender)){
-    return;
-  }
-  //parse message + addressee
-  char *r_position_ptr = strrchr(buffer, ':');
-  int r_position = (r_position_ptr == NULL ? -1 : r_position_ptr - buffer);
-  memcpy(msg, &buffer[r_position+1], strlen(buffer)-(r_position+1) );
-  msg[strlen(buffer)-(r_position+1)] = '\0';
-
-  for(i=0;i<strlen(msg);i++){
-    //    printf("%i: %02x\n",i,msg[i]);
-    if (msg[i]==(char)0x0d || msg[i]=='{'){
-      msg[i]='\0';
-      break;
-    }
-  }
   
-  memcpy(addressee,&buffer[r_position-9], 9);
-  addressee[9]='\0';
-  trimTrailing(addressee);
-  printf("%s -> %s: '%s'\n",sender,addressee,msg);
-    
+  if (arguments.debug) printf("%s",buffer);
+
+  if (parseable_message(buffer)) {
+    //parse sender
+    for(i=0;i<strlen(buffer);i++){
+      if (buffer[i]=='>'){
+	strncpy(sender,buffer,i);
+	sender[i]='\0';
+	break;
+      }
+    }
+
+    //parse message + addressee
+    char *r_position_ptr = strrchr(buffer, ':');
+    int r_position = (r_position_ptr == NULL ? -1 : r_position_ptr - buffer);
+    memcpy(msg, &buffer[r_position+1], strlen(buffer)-(r_position+1) );
+    msg[strlen(buffer)-(r_position+1)] = '\0';
+
+    for(i=0;i<strlen(msg);i++){
+      //    printf("%i: %02x\n",i,msg[i]);
+      if (msg[i]==(char)0x0d || msg[i]=='{'){
+	msg[i]='\0';
+	break;
+      }
+    }
   
+    memcpy(addressee,&buffer[r_position-9], 9);
+    addressee[9]='\0';
+    trimTrailing(addressee);
+    if (arguments.verbose) printf("%s -> %s: '%s'\n",sender,addressee,msg);
+  }  
 }
 
 int
@@ -173,6 +185,7 @@ main (int argc, char **argv)
   /* Default values. */
   arguments.silent = 0;
   arguments.verbose = 0;
+  arguments.debug = 0;
   arguments.range=-1;
   arguments.passcode="-1";
   arguments.callsign="-1";
@@ -213,14 +226,14 @@ main (int argc, char **argv)
     n = read(sockfd,buffer,255);
     if (n < 0) 
       error("ERROR reading from socket");
-    if (arguments.verbose)
+    if (arguments.debug)
       printf("%s\n",buffer);
 
  
     // user -1 pass -1 vers bulletinscreen 0.0.1 filter t/m
     bzero(buffer,256);
     snprintf(buffer, sizeof(buffer), "user -1 pass -1 vers %s filter t/m\n", argp_program_version);
-    if (arguments.verbose) {
+    if (arguments.debug) {
       printf("Sending to server: '%s'\n",buffer);
     }
     n = write(sockfd,buffer,strlen(buffer));
