@@ -125,16 +125,21 @@ void error(char *msg)
 }
 
 bool parseable_message(unsigned char *buffer){
+  // NEXT
   regex_t regex;
   int reti;
-  char msgbuf[100];
-  reti = regcomp(&regex, "", 0);
+  reti = regcomp(&regex, "^[A-Z0-9]", 0);
   if (reti) {
     fprintf(stderr, "Could not compile regex\n");
     exit(1);
   }
- 
-  return(true);
+  reti =regexec(&regex, buffer, 0,NULL,0);
+  if (!reti)
+    {
+      return(true);
+    }
+  if (arguments.debug) printf("Not parsable\n");
+  return(false);
 }
 
 void process(char *buffer){

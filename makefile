@@ -1,5 +1,2 @@
-bulletinscreen: bulletinscreen.o
-	gcc -o bulletinscreen bulletinscreen.o
-
-bulletinscreen.o: bulletinscreen.c
-	gcc -c bulletinscreen.c
+bulletinscreen: bulletinscreen.c
+	gcc -g -o bulletinscreen bulletinscreen.c -I.
