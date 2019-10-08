@@ -13,7 +13,7 @@
 // TODO
 // Range/Callsign filter
 
-  struct arguments arguments;
+struct arguments arguments;
 
 const char *config_file_name =
   "~/.bulletinscreen";
